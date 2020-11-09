@@ -1,18 +1,16 @@
 # https://github.com/alisoltanirad/Sentiment-Analysis-On-Small-Datasets
 # Dependencies: numpy, pandas, nltk, sk-learn, keras
+import ssl
+import re
 import numpy as np
 import pandas as pd
-import re
-import ssl
 import nltk
-from nltk.stem.porter import PorterStemmer
-from nltk.corpus import stopwords
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import confusion_matrix
 from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics import confusion_matrix
 from keras import Sequential
+from keras.layers import Embedding, Dense, Flatten
 from keras.preprocessing import sequence
-from keras.layers import Embedding, Flatten, Dense
 from keras.datasets import imdb
 
 
@@ -68,9 +66,9 @@ def train_dataset(parameters, weights):
         review = re.sub('[^a-zA-Z]', ' ', translated_data['Comment'][i])
         review = review.lower()
         review = review.split()
-        ps = PorterStemmer()
+        ps = nltk.stem.porter.PorterStemmer()
         review = [ps.stem(word) for word in review if
-                  word not in set(stopwords.words('english'))]
+                  word not in set(nltk.corpus.stopwords.words('english'))]
         review = ' '.join(review)
         f_x.append(review)
 
