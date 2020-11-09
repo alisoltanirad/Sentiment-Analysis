@@ -59,37 +59,32 @@ def train_dataset(parameters, weights):
         '/Sentiment-Analysis-Farsi-Dataset/master'
         '/TranslatedDigikalaDataset.csv', sep=',')
     y = dataset.iloc[:, 1].values
-    x = preprocess_text(dataset['Comment'])
+    x = preprocess_text(dataset['Comment'], parameters)
 
-    cv = CountVectorizer(max_features=parameters['max_words'])
-    x = cv.fit_transform(x).toarray()
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.15)
 
-    x_train, x_test, y_train, y_test = train_test_split(x, y,
-                                                                test_size=0.15)
-    model = Sequential()
-    model.add(Embedding(parameters['vocabulary_size'], 64,
+    classifier = Sequential()
+    classifier.add(Embedding(parameters['vocabulary_size'], 64,
                         input_length=parameters['max_words']))
-    model.add(Dense(32, activation='relu'))
-    model.add(Dense(32, activation='relu'))
-    model.layers[1].set_weights(weights[0])
-    model.layers[2].set_weights(weights[1])
+    classifier.add(Dense(32, activation='relu'))
+    classifier.add(Dense(32, activation='relu'))
+    classifier.layers[1].set_weights(weights[0])
+    classifier.layers[2].set_weights(weights[1])
 
-    for layer in model.layers[1:]:
+    for layer in classifier.layers[1:]:
         layer.trainable = False
 
-    model.add(Dense(32, activation='relu'))
-    model.add(Flatten())
-    model.add(Dense(1, activation='sigmoid'))
+    classifier.add(Dense(32, activation='relu'))
+    classifier.add(Flatten())
+    classifier.add(Dense(1, activation='sigmoid'))
 
-    model.compile(loss='binary_crossentropy',
+    classifier.compile(loss='binary_crossentropy',
                   optimizer='adam',
                   metrics=['accuracy'])
 
-    model.fit(x_train, y_train, batch_size=1, epochs=1, verbose=1)
+    classifier.fit(x_train, y_train, batch_size=1, epochs=1, verbose=1)
 
-    y_prediction = model.predict(x_test)
-
-    y_prediction = (y_prediction > 0.5)
+    y_prediction = (classifier.predict(x_test) > 0.5)
 
     cm = confusion_matrix(y_test, y_prediction)
 
@@ -100,7 +95,7 @@ def train_dataset(parameters, weights):
     print(accuracy)
 
 
-def preprocess_text(corpus):
+def preprocess_text(corpus, parameters):
     nltk.download('stopwords')
     ps = nltk.stem.porter.PorterStemmer()
     x = []
@@ -111,6 +106,9 @@ def preprocess_text(corpus):
                   word not in set(nltk.corpus.stopwords.words('english'))]
         preprocessed_text = ' '.join(useful_words)
         x.append(preprocessed_text)
+
+    cv = CountVectorizer(max_features=parameters['max_words'])
+    x = cv.fit_transform(x).toarray()
 
     return x
 
