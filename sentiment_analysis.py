@@ -63,9 +63,16 @@ def train_dataset(parameters, weights):
 
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.15)
 
+    y_prediction = classify_translated_data(parameters, weights,
+                                            x_train, y_train, x_test)
+
+    evaluate_classifier(y_test, y_prediction)
+
+
+def classify_translated_data(parameters, weights, x_train, y_train, x_test):
     classifier = Sequential()
     classifier.add(Embedding(parameters['vocabulary_size'], 64,
-                        input_length=parameters['max_words']))
+                             input_length=parameters['max_words']))
     classifier.add(Dense(32, activation='relu'))
     classifier.add(Dense(32, activation='relu'))
     classifier.layers[1].set_weights(weights[0])
@@ -79,14 +86,14 @@ def train_dataset(parameters, weights):
     classifier.add(Dense(1, activation='sigmoid'))
 
     classifier.compile(loss='binary_crossentropy',
-                  optimizer='adam',
-                  metrics=['accuracy'])
+                       optimizer='adam',
+                       metrics=['accuracy'])
 
     classifier.fit(x_train, y_train, batch_size=1, epochs=1, verbose=1)
 
     y_prediction = (classifier.predict(x_test) > 0.5)
 
-    evaluate_classifier(y_test, y_prediction)
+    return y_prediction
 
 
 def evaluate_classifier(y_true, y_pred):
