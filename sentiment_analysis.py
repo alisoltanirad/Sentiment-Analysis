@@ -7,7 +7,7 @@ import pandas as pd
 import nltk
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
 from keras import Sequential
 from keras.layers import Embedding, Dense, Flatten
 from keras.preprocessing import sequence
@@ -86,13 +86,11 @@ def train_dataset(parameters, weights):
 
     y_prediction = (classifier.predict(x_test) > 0.5)
 
-    cm = confusion_matrix(y_test, y_prediction)
+    evaluate_classifier(y_test, y_prediction)
 
-    correct_predictions = cm[0][0] + cm[1][1]
-    all_predictions = correct_predictions + (cm[0][1] + cm[1][0])
-    accuracy = round((correct_predictions / all_predictions) * 100, 3)
-    print('\n')
-    print(accuracy)
+
+def evaluate_classifier(y_true, y_pred):
+    print('* Accuracy: {:.2%}'.format(accuracy_score(y_true, y_pred)))
 
 
 def preprocess_text(corpus, parameters):
