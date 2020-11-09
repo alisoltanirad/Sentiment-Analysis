@@ -1,4 +1,5 @@
-# Import libraries
+# https://github.com/alisoltanirad/Sentiment-Analysis-On-Small-Datasets
+# Dependencies: numpy, pandas, nltk, sk-learn, keras
 import numpy as np
 import pandas as pd
 import re
@@ -11,117 +12,127 @@ from sklearn.metrics import confusion_matrix
 from sklearn.feature_extraction.text import CountVectorizer
 from keras import Sequential
 from keras.preprocessing import sequence
-from keras.layers import Embedding, LSTM, Dense
+from keras.layers import Embedding, Flatten, Dense
 from keras.datasets import imdb
 
-# Get english stop-words using nltk
-try:
-    _create_unverified_https_context = ssl._create_unverified_context
-except AttributeError:
-    pass
-else:
-    ssl._create_default_https_context = _create_unverified_https_context
-nltk.download('stopwords')
 
-# vocabulary_size is the number of most used words in IMDB dataset
-vocabulary_size = 5000
+def train_imdb_network(parameters):
+    (x_train, y_train), (x_test, y_test) = load_imdb_dataset(
+        parameters['vocabulary_size'])
+    x_train = sequence.pad_sequences(x_train, maxlen=parameters['max_words'])
+    x_test = sequence.pad_sequences(x_test, maxlen=parameters['max_words'])
+    x_train, x_test, y_train, y_test = train_test_split(x_train, y_train,
+                                                        test_size=0.15)
 
-# save np.load
-np_load_old = np.load
+    classifier = Sequential()
+    classifier.add(Embedding(parameters['vocabulary_size'], 64,
+                             input_length=parameters['max_words']))
+    classifier.add(Dense(32, activation='relu'))
+    classifier.add(Dense(32, activation='relu'))
+    classifier.add(Flatten())
+    classifier.add(Dense(1, activation='sigmoid'))
 
-# modify the default parameters of np.load
-np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True, **k)
+    classifier.compile(loss='binary_crossentropy',
+                       optimizer='adam',
+                       metrics=['accuracy'])
 
-# Get IMDB data
-(x_train, y_train), (x_test, y_test) = imdb.load_data(path="imdb.npz",
-                                                      num_words=vocabulary_size)
+    classifier.fit(x_train, y_train, validation_data=(x_test, y_test),
+                   batch_size=128, epochs=1, verbose=1)
 
-# restore np.load for future normal usage
-np.load = np_load_old
-
-# Get small dataset (translated from farsi to english)
-translated_data = pd.read_csv('https://raw.githubusercontent.com/alisoltanirad'
-                              '/Sentiment-Analysis-Farsi-Dataset/master'
-                              '/TranslatedDigikalaDataset.csv', sep=',')
-
-f_y = translated_data.iloc[0:719, 1].values
-
-f_x = []
-for i in range(719):
-    review = re.sub('[^a-zA-Z]', ' ', translated_data['Comment'][i])
-    review = review.lower()
-    review = review.split()
-    ps = PorterStemmer()
-    review = [ps.stem(word) for word in review if
-              word not in set(stopwords.words('english'))]
-    review = ' '.join(review)
-    f_x.append(review)
+    weights = [
+        classifier.layers[1].get_weights(),
+        classifier.layers[2].get_weights()
+    ]
+    return weights
 
 
-# max_words is the maximum number of words in a review
-max_words = 500
-
-X_train = sequence.pad_sequences(x_train, maxlen=max_words)
-X_test = sequence.pad_sequences(x_test, maxlen=max_words)
-cv = CountVectorizer(max_features=500)
-f_x = cv.fit_transform(f_x).toarray()
-
-
-x_train, x_test, y_train, y_test = train_test_split(X_train, y_train,
-                                                    test_size=0.15)
-f_x_train, f_x_test, f_y_train, f_y_test = train_test_split(f_x, f_y,
-                                                            test_size=0.15)
+def load_imdb_dataset(vocabulary_size):
+    temp = np.load
+    np.load = lambda *a, **k: temp(*a, allow_pickle=True, **k)
+    (x_train, y_train), (x_test, y_test) = imdb.load_data(path='imdb.npz',
+                                                    num_words=vocabulary_size)
+    np.load = temp
+    return (x_train, y_train), (x_test, y_test)
 
 
-# LSTM neural network for IMDB dataset training
-classifier = Sequential()
-classifier.add(Embedding(vocabulary_size, 200, input_length=max_words))
-classifier.add(LSTM(200))
-classifier.add(Dense(1, activation='sigmoid'))
+def train_dataset(parameters, weights):
+    translated_data = pd.read_csv(
+        'https://raw.githubusercontent.com/alisoltanirad'
+        '/Sentiment-Analysis-Farsi-Dataset/master'
+        '/TranslatedDigikalaDataset.csv', sep=',')
+    f_y = translated_data.iloc[0:719, 1].values
 
-classifier.compile(loss='binary_crossentropy',
-                   optimizer='adam',
-                   metrics=['accuracy'])
+    nltk.download('stopwords')
+    f_x = []
+    for i in range(719):
+        review = re.sub('[^a-zA-Z]', ' ', translated_data['Comment'][i])
+        review = review.lower()
+        review = review.split()
+        ps = PorterStemmer()
+        review = [ps.stem(word) for word in review if
+                  word not in set(stopwords.words('english'))]
+        review = ' '.join(review)
+        f_x.append(review)
 
-classifier.fit(x_train, y_train, validation_data=(x_test, y_test),
-               batch_size=64, epochs=1, verbose=1)
+    cv = CountVectorizer(max_features=parameters['max_words'])
+    f_x = cv.fit_transform(f_x).toarray()
 
-# Save layer weights for fine-tuning
-weights1 = classifier.layers[0].get_weights()
-weights2 = classifier.layers[1].get_weights()
+    f_x_train, f_x_test, f_y_train, f_y_test = train_test_split(f_x, f_y,
+                                                                test_size=0.15)
+    model = Sequential()
+    model.add(Embedding(parameters['vocabulary_size'], 64,
+                        input_length=parameters['max_words']))
+    model.add(Dense(32, activation='relu'))
+    model.add(Dense(32, activation='relu'))
+    model.layers[1].set_weights(weights[0])
+    model.layers[2].set_weights(weights[1])
+
+    for layer in model.layers[1:]:
+        layer.trainable = False
+
+    model.add(Dense(32, activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(1, activation='sigmoid'))
+
+    model.compile(loss='binary_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+
+    model.fit(f_x_train, f_y_train, batch_size=1, epochs=1, verbose=1)
+
+    f_y_prediction = model.predict(f_x_test)
+
+    f_y_predict = (f_y_prediction > 0.5)
+
+    cm = confusion_matrix(f_y_test, f_y_predict)
+
+    correct_predictions = cm[0][0] + cm[1][1]
+    all_predictions = correct_predictions + (cm[0][1] + cm[1][0])
+    accuracy = round((correct_predictions / all_predictions) * 100, 3)
+    print('\n')
+    print(accuracy)
 
 
-# LSTM neural network for small dataset training
-model = Sequential()
-model.add(Embedding(vocabulary_size, 200, input_length=max_words))
-model.add(LSTM(200))
-model.layers[0].set_weights(weights1)
-model.layers[1].set_weights(weights2)
+def set_processing_parameters():
+    parameters = {
+        'vocabulary_size' : 5000,
+        'max_words' : 500
+    }
+    return parameters
 
-for layer in model.layers:
-    layer.trainable = False
 
-model.add(Dense(200, activation='relu'))
-model.add(Dense(1, activation='sigmoid'))
+def main():
+    parameters = set_processing_parameters()
+    network_weights = train_imdb_network(parameters)
+    train_dataset(parameters, network_weights)
 
-model.compile(loss='binary_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
 
-model.fit(f_x_train, f_y_train, batch_size=1, epochs=1, verbose=1)
+if __name__ == '__main__':
+    try:
+        _create_unverified_https_context = ssl._create_unverified_context
+    except AttributeError:
+        pass
+    else:
+        ssl._create_default_https_context = _create_unverified_https_context
 
-# Predict test data of small dataset
-f_y_prediction = model.predict(f_x_test)
-
-# Prepare prediction for classification
-f_y_predict = (f_y_prediction > 0.5)
-
-# Confusion matrix for test data
-cm = confusion_matrix(f_y_test, f_y_predict)
-
-# Print test data accuracy
-correct_predictions = cm[0][0] + cm[1][1]
-all_predictions = correct_predictions + (cm[0][1] + cm[1][0])
-accuracy = round((correct_predictions / all_predictions) * 100, 3)
-print('\n')
-print(accuracy)
+    main()
