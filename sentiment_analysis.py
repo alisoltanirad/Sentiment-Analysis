@@ -54,28 +54,28 @@ def load_imdb_dataset(vocabulary_size):
 
 
 def train_dataset(parameters, weights):
-    translated_data = pd.read_csv(
+    dataset = pd.read_csv(
         'https://raw.githubusercontent.com/alisoltanirad'
         '/Sentiment-Analysis-Farsi-Dataset/master'
         '/TranslatedDigikalaDataset.csv', sep=',')
-    f_y = translated_data.iloc[0:719, 1].values
+    y = dataset.iloc[:, 1].values
 
     nltk.download('stopwords')
-    f_x = []
+    x = []
     for i in range(719):
-        review = re.sub('[^a-zA-Z]', ' ', translated_data['Comment'][i])
+        review = re.sub('[^a-zA-Z]', ' ', dataset['Comment'][i])
         review = review.lower()
         review = review.split()
         ps = nltk.stem.porter.PorterStemmer()
         review = [ps.stem(word) for word in review if
                   word not in set(nltk.corpus.stopwords.words('english'))]
         review = ' '.join(review)
-        f_x.append(review)
+        x.append(review)
 
     cv = CountVectorizer(max_features=parameters['max_words'])
-    f_x = cv.fit_transform(f_x).toarray()
+    x = cv.fit_transform(x).toarray()
 
-    f_x_train, f_x_test, f_y_train, f_y_test = train_test_split(f_x, f_y,
+    x_train, x_test, y_train, y_test = train_test_split(x, y,
                                                                 test_size=0.15)
     model = Sequential()
     model.add(Embedding(parameters['vocabulary_size'], 64,
@@ -96,13 +96,13 @@ def train_dataset(parameters, weights):
                   optimizer='adam',
                   metrics=['accuracy'])
 
-    model.fit(f_x_train, f_y_train, batch_size=1, epochs=1, verbose=1)
+    model.fit(x_train, y_train, batch_size=1, epochs=1, verbose=1)
 
-    f_y_prediction = model.predict(f_x_test)
+    y_prediction = model.predict(x_test)
 
-    f_y_predict = (f_y_prediction > 0.5)
+    y_prediction = (y_prediction > 0.5)
 
-    cm = confusion_matrix(f_y_test, f_y_predict)
+    cm = confusion_matrix(y_test, y_prediction)
 
     correct_predictions = cm[0][0] + cm[1][1]
     all_predictions = correct_predictions + (cm[0][1] + cm[1][0])
