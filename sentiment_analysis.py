@@ -59,18 +59,7 @@ def train_dataset(parameters, weights):
         '/Sentiment-Analysis-Farsi-Dataset/master'
         '/TranslatedDigikalaDataset.csv', sep=',')
     y = dataset.iloc[:, 1].values
-
-    nltk.download('stopwords')
-    x = []
-    for i in range(719):
-        review = re.sub('[^a-zA-Z]', ' ', dataset['Comment'][i])
-        review = review.lower()
-        review = review.split()
-        ps = nltk.stem.porter.PorterStemmer()
-        review = [ps.stem(word) for word in review if
-                  word not in set(nltk.corpus.stopwords.words('english'))]
-        review = ' '.join(review)
-        x.append(review)
+    x = preprocess_text(dataset['Comment'])
 
     cv = CountVectorizer(max_features=parameters['max_words'])
     x = cv.fit_transform(x).toarray()
@@ -109,6 +98,21 @@ def train_dataset(parameters, weights):
     accuracy = round((correct_predictions / all_predictions) * 100, 3)
     print('\n')
     print(accuracy)
+
+
+def preprocess_text(corpus):
+    nltk.download('stopwords')
+    ps = nltk.stem.porter.PorterStemmer()
+    x = []
+
+    for text in corpus:
+        tokenized_text = re.sub('[^a-zA-Z]', ' ', text).lower().split()
+        useful_words = [ps.stem(word) for word in tokenized_text if
+                  word not in set(nltk.corpus.stopwords.words('english'))]
+        preprocessed_text = ' '.join(useful_words)
+        x.append(preprocessed_text)
+
+    return x
 
 
 def set_processing_parameters():
