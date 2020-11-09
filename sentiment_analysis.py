@@ -14,13 +14,10 @@ from keras.preprocessing import sequence
 from keras.datasets import imdb
 
 
-def train_imdb_network(parameters):
-    (x_train, y_train), (x_test, y_test) = load_imdb_dataset(
-        parameters['vocabulary_size'])
-    x_train = sequence.pad_sequences(x_train, maxlen=parameters['max_words'])
-    x_test = sequence.pad_sequences(x_test, maxlen=parameters['max_words'])
-    x_train, x_test, y_train, y_test = train_test_split(x_train, y_train,
-                                                        test_size=0.15)
+def classify_imdb_data(parameters):
+    (x, y), (_, __) = load_imdb_dataset(parameters['vocabulary_size'])
+    x = sequence.pad_sequences(x, maxlen=parameters['max_words'])
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25)
 
     classifier = Sequential()
     classifier.add(Embedding(parameters['vocabulary_size'], 64,
@@ -37,20 +34,19 @@ def train_imdb_network(parameters):
     classifier.fit(x_train, y_train, validation_data=(x_test, y_test),
                    batch_size=128, epochs=1, verbose=1)
 
-    weights = [
-        classifier.layers[1].get_weights(),
-        classifier.layers[2].get_weights()
-    ]
+    weights = [classifier.layers[i].get_weights()
+               for i in range(1, (len(classifier.layers) - 2))]
+
     return weights
 
 
 def load_imdb_dataset(vocabulary_size):
     temp = np.load
     np.load = lambda *a, **k: temp(*a, allow_pickle=True, **k)
-    (x_train, y_train), (x_test, y_test) = imdb.load_data(path='imdb.npz',
+    (x, y), (_, __) = imdb.load_data(path='imdb.npz',
                                                     num_words=vocabulary_size)
     np.load = temp
-    return (x_train, y_train), (x_test, y_test)
+    return (x, y), (_, __)
 
 
 def train_dataset(parameters, weights):
@@ -75,11 +71,10 @@ def classify_translated_data(parameters, weights, x_train, y_train, x_test):
                              input_length=parameters['max_words']))
     classifier.add(Dense(32, activation='relu'))
     classifier.add(Dense(32, activation='relu'))
-    classifier.layers[1].set_weights(weights[0])
-    classifier.layers[2].set_weights(weights[1])
 
-    for layer in classifier.layers[1:]:
-        layer.trainable = False
+    for i in range(1, len(classifier.layers)):
+        classifier.layers[i].set_weights(weights[i-1])
+        classifier.layers[i].trainable = False
 
     classifier.add(Dense(32, activation='relu'))
     classifier.add(Flatten())
@@ -128,7 +123,7 @@ def set_processing_parameters():
 
 def main():
     parameters = set_processing_parameters()
-    network_weights = train_imdb_network(parameters)
+    network_weights = classify_imdb_data(parameters)
     train_dataset(parameters, network_weights)
 
 
