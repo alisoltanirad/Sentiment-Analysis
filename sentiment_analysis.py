@@ -36,7 +36,7 @@ def classify_imdb_data(parameters):
     classifier = Sequential()
     classifier.add(Embedding(parameters['vocabulary_size'], 64,
                              input_length=parameters['max_words']))
-    classifier.add(Dense(32, activation='relu'))
+    classifier.add(Dense(64, activation='relu'))
     classifier.add(Dense(32, activation='relu'))
     classifier.add(Flatten())
     classifier.add(Dense(1, activation='sigmoid'))
@@ -46,7 +46,7 @@ def classify_imdb_data(parameters):
                        metrics=['accuracy'])
 
     classifier.fit(x_train, y_train, validation_data=(x_test, y_test),
-                   batch_size=128, epochs=1, verbose=1)
+                   batch_size=32, epochs=5, verbose=2)
 
     weights = [classifier.layers[i].get_weights()
                for i in range(1, (len(classifier.layers) - 2))]
@@ -71,7 +71,7 @@ def analyze_dataset(parameters, weights):
     y = dataset.iloc[:, 1].values
     x = preprocess_text(dataset['Comment'], parameters)
 
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.15)
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3)
 
     corpus = {
         'x_train': x_train,
@@ -105,7 +105,7 @@ def classify_translated_data(parameters, weights, corpus):
     classifier = Sequential()
     classifier.add(Embedding(parameters['vocabulary_size'], 64,
                              input_length=parameters['max_words']))
-    classifier.add(Dense(32, activation='relu'))
+    classifier.add(Dense(64, activation='relu'))
     classifier.add(Dense(32, activation='relu'))
 
     for i in range(1, len(classifier.layers)):
@@ -120,7 +120,8 @@ def classify_translated_data(parameters, weights, corpus):
                        optimizer='adam',
                        metrics=['accuracy'])
 
-    classifier.fit(corpus['x_train'], corpus['y_train'], batch_size=1, epochs=1, verbose=1)
+    classifier.fit(corpus['x_train'], corpus['y_train'],
+                   batch_size=1, epochs=5, verbose=2)
 
     y_prediction = (classifier.predict(corpus['x_test']) > 0.5)
 
