@@ -73,8 +73,12 @@ def analyze_dataset(parameters, weights):
 
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.15)
 
-    y_prediction = classify_translated_data(parameters, weights,
-                                            x_train, y_train, x_test)
+    corpus = {
+        'x_train': x_train,
+        'y_train': y_train,
+        'x_test': x_test
+    }
+    y_prediction = classify_translated_data(parameters, weights, corpus)
 
     evaluate_classifier(y_test, y_prediction)
 
@@ -97,7 +101,7 @@ def preprocess_text(corpus, parameters):
     return x
 
 
-def classify_translated_data(parameters, weights, x_train, y_train, x_test):
+def classify_translated_data(parameters, weights, corpus):
     classifier = Sequential()
     classifier.add(Embedding(parameters['vocabulary_size'], 64,
                              input_length=parameters['max_words']))
@@ -116,9 +120,9 @@ def classify_translated_data(parameters, weights, x_train, y_train, x_test):
                        optimizer='adam',
                        metrics=['accuracy'])
 
-    classifier.fit(x_train, y_train, batch_size=1, epochs=1, verbose=1)
+    classifier.fit(corpus['x_train'], corpus['y_train'], batch_size=1, epochs=1, verbose=1)
 
-    y_prediction = (classifier.predict(x_test) > 0.5)
+    y_prediction = (classifier.predict(corpus['x_test']) > 0.5)
 
     return y_prediction
 
