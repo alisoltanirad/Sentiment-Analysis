@@ -14,6 +14,20 @@ from keras.preprocessing import sequence
 from keras.datasets import imdb
 
 
+def main():
+    parameters = set_processing_parameters()
+    network_weights = classify_imdb_data(parameters)
+    analyze_dataset(parameters, network_weights)
+
+
+def set_processing_parameters():
+    parameters = {
+        'vocabulary_size' : 5000,
+        'max_words' : 500
+    }
+    return parameters
+
+
 def classify_imdb_data(parameters):
     (x, y), (_, __) = load_imdb_dataset(parameters['vocabulary_size'])
     x = sequence.pad_sequences(x, maxlen=parameters['max_words'])
@@ -49,7 +63,7 @@ def load_imdb_dataset(vocabulary_size):
     return (x, y), (_, __)
 
 
-def train_dataset(parameters, weights):
+def analyze_dataset(parameters, weights):
     dataset = pd.read_csv(
         'https://raw.githubusercontent.com/alisoltanirad'
         '/Sentiment-Analysis-Farsi-Dataset/master'
@@ -63,6 +77,24 @@ def train_dataset(parameters, weights):
                                             x_train, y_train, x_test)
 
     evaluate_classifier(y_test, y_prediction)
+
+
+def preprocess_text(corpus, parameters):
+    nltk.download('stopwords')
+    ps = nltk.stem.porter.PorterStemmer()
+    x = []
+
+    for text in corpus:
+        tokenized_text = re.sub('[^a-zA-Z]', ' ', text).lower().split()
+        useful_words = [ps.stem(word) for word in tokenized_text if
+                  word not in set(nltk.corpus.stopwords.words('english'))]
+        preprocessed_text = ' '.join(useful_words)
+        x.append(preprocessed_text)
+
+    cv = CountVectorizer(max_features=parameters['max_words'])
+    x = cv.fit_transform(x).toarray()
+
+    return x
 
 
 def classify_translated_data(parameters, weights, x_train, y_train, x_test):
@@ -91,40 +123,8 @@ def classify_translated_data(parameters, weights, x_train, y_train, x_test):
     return y_prediction
 
 
-def evaluate_classifier(y_true, y_pred):
-    print('* Accuracy: {:.2%}'.format(accuracy_score(y_true, y_pred)))
-
-
-def preprocess_text(corpus, parameters):
-    nltk.download('stopwords')
-    ps = nltk.stem.porter.PorterStemmer()
-    x = []
-
-    for text in corpus:
-        tokenized_text = re.sub('[^a-zA-Z]', ' ', text).lower().split()
-        useful_words = [ps.stem(word) for word in tokenized_text if
-                  word not in set(nltk.corpus.stopwords.words('english'))]
-        preprocessed_text = ' '.join(useful_words)
-        x.append(preprocessed_text)
-
-    cv = CountVectorizer(max_features=parameters['max_words'])
-    x = cv.fit_transform(x).toarray()
-
-    return x
-
-
-def set_processing_parameters():
-    parameters = {
-        'vocabulary_size' : 5000,
-        'max_words' : 500
-    }
-    return parameters
-
-
-def main():
-    parameters = set_processing_parameters()
-    network_weights = classify_imdb_data(parameters)
-    train_dataset(parameters, network_weights)
+def evaluate_classifier(y_true, y_prediction):
+    print('* Accuracy: {:.2%}'.format(accuracy_score(y_true, y_prediction)))
 
 
 if __name__ == '__main__':
