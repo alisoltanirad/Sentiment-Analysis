@@ -1,4 +1,4 @@
-# https://github.com/alisoltanirad/Sentiment-Analysis-On-Small-Datasets
+# https://github.com/alisoltanirad/Sentiment-Analysis
 # Dependencies: numpy, pandas, nltk, sk-learn, keras
 import ssl
 import re
@@ -16,7 +16,7 @@ from keras.datasets import imdb
 
 def main():
     parameters = set_processing_parameters()
-    network_weights = classify_imdb_data(parameters)
+    network_weights = train_imdb_network(parameters)
     analyze_dataset(parameters, network_weights)
 
 
@@ -28,37 +28,51 @@ def set_processing_parameters():
     return parameters
 
 
-def classify_imdb_data(parameters):
+def train_imdb_network(parameters):
     (x, y), (_, __) = load_imdb_dataset(parameters['vocabulary_size'])
     x = sequence.pad_sequences(x, maxlen=parameters['max_words'])
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.25)
 
     classifier = Sequential()
-    classifier.add(Embedding(parameters['vocabulary_size'], 64,
-                             input_length=parameters['max_words']))
-    classifier.add(Dense(64, activation='relu'))
-    classifier.add(Dense(32, activation='relu'))
+    classifier.add(
+        Embedding(
+            input_dim=parameters['vocabulary_size'],
+            output_dim=64,
+            input_length=parameters['max_words']
+        )
+    )
+    classifier.add(Dense(units=64, activation='relu'))
+    classifier.add(Dense(units=32, activation='relu'))
     classifier.add(Flatten())
-    classifier.add(Dense(1, activation='sigmoid'))
+    classifier.add(Dense(units=1, activation='sigmoid'))
 
-    classifier.compile(loss='binary_crossentropy',
-                       optimizer='adam',
-                       metrics=['accuracy'])
+    classifier.compile(
+        loss='binary_crossentropy',
+        optimizer='adam',
+        metrics=['accuracy']
+    )
 
-    classifier.fit(x_train, y_train, validation_data=(x_test, y_test),
-                   batch_size=32, epochs=5, verbose=2)
+    classifier.fit(
+        x=x_train,
+        y=y_train,
+        validation_data=(x_test, y_test),
+        batch_size=32,
+        epochs=5,
+        verbose=2
+    )
 
-    weights = [classifier.layers[i].get_weights()
-               for i in range(1, (len(classifier.layers) - 2))]
+    weights = [
+        classifier.layers[i].get_weights()
+        for i in range(1, (len(classifier.layers) - 2))
+    ]
 
     return weights
 
 
 def load_imdb_dataset(vocabulary_size):
     temp = np.load
-    np.load = lambda *a, **k: temp(*a, allow_pickle=True, **k)
-    (x, y), (_, __) = imdb.load_data(path='imdb.npz',
-                                                    num_words=vocabulary_size)
+    np.load = lambda *a, **k: temp(*a, allow_pickle=True)
+    (x, y), (_, __) = imdb.load_data(path='imdb.npz', num_words=vocabulary_size)
     np.load = temp
     return (x, y), (_, __)
 
@@ -67,7 +81,9 @@ def analyze_dataset(parameters, weights):
     dataset = pd.read_csv(
         'https://raw.githubusercontent.com/alisoltanirad'
         '/Sentiment-Analysis-Farsi-Dataset/master'
-        '/TranslatedDigikalaDataset.csv', sep=',')
+        '/TranslatedDigikalaDataset.csv',
+        sep=','
+    )
     y = dataset.iloc[:, 1].values
     x = preprocess_text(dataset['Comment'], parameters)
 
@@ -90,8 +106,11 @@ def preprocess_text(corpus, parameters):
 
     for text in corpus:
         tokenized_text = re.sub('[^a-zA-Z]', ' ', text).lower().split()
-        useful_words = [ps.stem(word) for word in tokenized_text if
-                  word not in set(nltk.corpus.stopwords.words('english'))]
+        useful_words = [
+            ps.stem(word)
+            for word in tokenized_text
+            if word not in set(nltk.corpus.stopwords.words('english'))
+        ]
         preprocessed_text = ' '.join(useful_words)
         x.append(preprocessed_text)
 
@@ -103,25 +122,37 @@ def preprocess_text(corpus, parameters):
 
 def classify_translated_data(parameters, weights, corpus):
     classifier = Sequential()
-    classifier.add(Embedding(parameters['vocabulary_size'], 64,
-                             input_length=parameters['max_words']))
-    classifier.add(Dense(64, activation='relu'))
-    classifier.add(Dense(32, activation='relu'))
+    classifier.add(
+        Embedding(
+            input_dim=parameters['vocabulary_size'],
+            output_dim=64,
+            input_length=parameters['max_words']
+        )
+    )
+    classifier.add(Dense(units=64, activation='relu'))
+    classifier.add(Dense(units=32, activation='relu'))
 
     for i in range(1, len(classifier.layers)):
         classifier.layers[i].set_weights(weights[i-1])
         classifier.layers[i].trainable = False
 
-    classifier.add(Dense(32, activation='relu'))
+    classifier.add(Dense(units=32, activation='relu'))
     classifier.add(Flatten())
-    classifier.add(Dense(1, activation='sigmoid'))
+    classifier.add(Dense(units=1, activation='sigmoid'))
 
-    classifier.compile(loss='binary_crossentropy',
-                       optimizer='adam',
-                       metrics=['accuracy'])
+    classifier.compile(
+        loss='binary_crossentropy',
+        optimizer='adam',
+        metrics=['accuracy']
+    )
 
-    classifier.fit(corpus['x_train'], corpus['y_train'],
-                   batch_size=1, epochs=5, verbose=2)
+    classifier.fit(
+        x=corpus['x_train'],
+        y=corpus['y_train'],
+        batch_size=1,
+        epochs=5,
+        verbose=2
+    )
 
     y_prediction = (classifier.predict(corpus['x_test']) > 0.5)
 
