@@ -1,17 +1,19 @@
-# https://github.com/alisoltanirad/Sentiment-Analysis
-# Dependencies: numpy, pandas, nltk, sk-learn, keras
+# https://github.com/alisoltanirad/sentiment-analysis
+# Dependencies: numpy, pandas, nltk, sk-learn, keras, reason
+
 import ssl
-import re
 import numpy as np
 import pandas as pd
 import nltk
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.metrics import accuracy_score
 from keras import Sequential
 from keras.layers import Embedding, Dense, Flatten
 from keras.preprocessing import sequence
 from keras.datasets import imdb
+from reason.stem import PorterStemmer
+from reason.tokenize import WordTokenizer
+from reason.metrics import accuracy
 
 
 def main():
@@ -22,8 +24,8 @@ def main():
 
 def set_processing_parameters():
     parameters = {
-        'vocabulary_size' : 5000,
-        'max_words' : 500
+        'vocabulary_size': 5000,
+        'max_words': 500
     }
     return parameters
 
@@ -101,15 +103,17 @@ def analyze_dataset(parameters, weights):
 
 def preprocess_text(corpus, parameters):
     nltk.download('stopwords')
-    ps = nltk.stem.porter.PorterStemmer()
+    stopwords = set(nltk.corpus.stopwords.words('english'))
+    stemmer = PorterStemmer()
+    tokenizer = WordTokenizer()
     x = []
 
     for text in corpus:
-        tokenized_text = re.sub('[^a-zA-Z]', ' ', text).lower().split()
+        tokenized_text = tokenizer.tokenize(text)
         useful_words = [
-            ps.stem(word)
+            stemmer.stem(word)[0]
             for word in tokenized_text
-            if word not in set(nltk.corpus.stopwords.words('english'))
+            if word not in stopwords
         ]
         preprocessed_text = ' '.join(useful_words)
         x.append(preprocessed_text)
@@ -160,7 +164,7 @@ def classify_translated_data(parameters, weights, corpus):
 
 
 def evaluate_classifier(y_true, y_prediction):
-    print('* Accuracy: {:.2%}'.format(accuracy_score(y_true, y_prediction)))
+    print('* Accuracy: {:.2%}'.format(accuracy(y_true, y_prediction)))
 
 
 if __name__ == '__main__':
